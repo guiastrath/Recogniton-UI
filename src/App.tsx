@@ -1,14 +1,16 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable react-hooks/exhaustive-deps */
+
 import { CompreFace } from '@exadel/compreface-js-sdk';
 import styles from './App.module.scss'
 import { Button } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Webcam from 'react-webcam'
+import MainPage from './domains/mainPage/MainPage';
 
 const SERVER = 'http://localhost';
 const PORT = 8000;
-const KEY = '48074788-e0a7-40a0-b6c5-1aba5fbb21ad';
+const KEY = import.meta.env.VITE_RECOGNITION_API_KEY;
 
 const core = new CompreFace(SERVER, PORT)
 const recognition = core.initFaceRecognitionService(KEY)
@@ -25,13 +27,11 @@ const App = () => {
     const webcamRef = useRef<Webcam>(null);
     const $canvas = useRef<HTMLCanvasElement>(document.createElement('canvas'));
     // const [screenshot, setScreenshot] = useState<string | null | undefined>('');
-    const [a, setA] = useState<HTMLCanvasElement | null | undefined>(null);
-    const [b, setB] = useState<Box | null | undefined>(null);
-    const [paused, setPaused] = useState<boolean>(false);
+    const [paused, setPaused] = useState<boolean>(true);
 
     useEffect(() => {
         if (!paused) {
-            const timerID = setInterval(() => timedFunction(), 150);
+            const timerID = setInterval(() => timedFunction(), 75);
             return () => clearInterval(timerID);
         }
         return;
@@ -58,8 +58,6 @@ const App = () => {
                 const box = res.result[0].box;
                 const canvasContext: CanvasRenderingContext2D = $canvas.current.getContext('2d') || new CanvasRenderingContext2D
                 drawRectangle(canvasContext, box);
-                setA($canvas.current)
-                setB(box)
                 console.log(box);
             }).catch(() => drawRectangle($canvas.current.getContext('2d') || new CanvasRenderingContext2D, {
                 probability: 0,
@@ -89,10 +87,11 @@ const App = () => {
                     onUserMediaError={console.log}
                 >
                 </Webcam>
-
-                <div className={styles.canvas}>
-                    <canvas ref={$canvas} width={500} height={375} />
-                </div>
+                {paused ? null : (
+                    <div className={styles.canvas}>
+                        <canvas ref={$canvas} width={500} height={375} />
+                    </div>)
+                }
 
             </div>
             <Button
@@ -108,6 +107,7 @@ const App = () => {
                 {paused ? 'Play' : 'Pause'}
             </Button>
             {/* {renderCanvas} */}
+            {/* <MainPage /> */}
         </div >
     )
 };
