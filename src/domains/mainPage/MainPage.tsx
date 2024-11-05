@@ -27,7 +27,7 @@ const PORT = 8000;
 const KEY = import.meta.env.VITE_RECOGNITION_API_KEY;
 const VIDEO_WIDTH = 500;
 const VIDEO_HEIGHT = 375;
-const SAMPLE_RATE = 150;
+const SAMPLE_RATE = 200;
 
 const MainPage = () => {
     const $canvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
@@ -67,7 +67,9 @@ const MainPage = () => {
         const boxes: Array<Box> = [];
 
         recognition.recognize(imagePath, recognitionParams).then((result: any) => {
+
             result.result.forEach((face: Face) => {
+                console.log(`${face.subjects[0].subject} reconhecido com ${(face.subjects[0].similarity * 100).toFixed(2)}% de similaridade`);
                 boxes.push(face.box);
             });
 
