@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { CompreFace } from "@exadel/compreface-js-sdk";
 import { useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
@@ -23,16 +24,18 @@ type Face = {
 }
 
 const SERVER = 'http://localhost';
-const PORT = 8000;
+const PORT = 8001;
 const KEY = import.meta.env.VITE_RECOGNITION_API_KEY;
-const VIDEO_WIDTH = 500;
-const VIDEO_HEIGHT = 375;
-const SAMPLE_RATE = 200;
+const VIDEO_SCALING = 120;
+const VIDEO_WIDTH = 16 * VIDEO_SCALING;
+const VIDEO_HEIGHT = 9 * VIDEO_SCALING;
 
 const MainPage = () => {
     const $canvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
     const $camRef = useRef<Webcam>(null);
     const [paused, setPaused] = useState<boolean>(true);
+    const [cycleReady, setCycleReady] = useState<boolean>(true);
+    const [recognitionText, setRecognitionText] = useState<string>('');
 
     // Service Configuration
     const core = new CompreFace(SERVER, PORT);
@@ -54,14 +57,14 @@ const MainPage = () => {
     }
 
     // Recognition Function
-    const updateImage = () => {
+    const updateImage = async () => {
+        setCycleReady(false);
         const cameraCanvas = $camRef.current?.getCanvas();
         const imagePath = cameraCanvas?.toDataURL("image/jpeg", 1).split(',')[1] || '';
         const canvasContext: CanvasRenderingContext2D = $canvasRef.current.getContext('2d') || new CanvasRenderingContext2D;
 
         const recognitionParams = {
-            limit: 1,
-            det_prob_threshold: 0.9,
+            limit: 0,
         };
 
         const boxes: Array<Box> = [];
@@ -69,13 +72,15 @@ const MainPage = () => {
         recognition.recognize(imagePath, recognitionParams).then((result: any) => {
 
             result.result.forEach((face: Face) => {
-                console.log(`${face.subjects[0].subject} reconhecido com ${(face.subjects[0].similarity * 100).toFixed(2)}% de similaridade`);
+                setRecognitionText(`${face.subjects[0].subject} reconhecido com ${(face.subjects[0].similarity * 100).toFixed(2)}% de similaridade`);
                 boxes.push(face.box);
+                setCycleReady(true);
             });
 
             drawRectangles(canvasContext, boxes)
         }).catch((error: any) => {
             clearRectangle(canvasContext);
+            setCycleReady(true);
             console.log(error);
         });
 
@@ -83,13 +88,10 @@ const MainPage = () => {
 
     // Update Frequency Logic
     useEffect(() => {
-        if (!paused) {
-            const timerID = setInterval(() => updateImage(), SAMPLE_RATE);
-            return () => clearInterval(timerID);
+        if (cycleReady && !paused) {
+            updateImage();
         }
-        return;
-    });
-
+    }, [cycleReady, paused]);
 
     return (
         <div className={styles.container}>
@@ -99,29 +101,25 @@ const MainPage = () => {
                     ref={$camRef}
                     onUserMedia={console.log}
                     onUserMediaError={console.log}
+                    videoConstraints={{ width: 1600, height: 900 }}
                 >
                 </Webcam>
                 {paused ? null : (
                     <div className={styles.canvas}>
-                        <canvas ref={$canvasRef} width={500} height={375} />
+                        <canvas ref={$canvasRef} width={VIDEO_WIDTH} height={VIDEO_HEIGHT} />
                     </div>)
                 }
 
             </div>
             <Button
                 type="primary"
-                onClick={updateImage}
-            >
-                Generate Image
-            </Button>
-            <Button
-                type="primary"
                 onClick={() => setPaused(!paused)}
             >
-                {paused ? 'Play' : 'Pause'}
+                {paused ? 'Start' : 'Pause'}
             </Button>
-            {/* {renderCanvas} */}
-            {/* <MainPage /> */}
+            <div>
+                {recognitionText}
+            </div>
         </div >
     );
 };
