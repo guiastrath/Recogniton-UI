@@ -13,19 +13,10 @@ type Box = {
     y_max: number,
 }
 
-type Subject = {
-    subject: string,
-    similarity: number,
-}
-
-type Face = {
-    box: Box,
-    subjects: Array<Subject>
-}
-
-const SERVER = 'http://localhost';
-const PORT = 8001;
+const SERVER = import.meta.env.VITE_RECOGNITION_BASE_URL;
+const PORT = import.meta.env.VITE_RECOGNITION_PORT;
 const KEY = import.meta.env.VITE_RECOGNITION_API_KEY;
+
 const VIDEO_SCALING = 120;
 const VIDEO_WIDTH = 16 * VIDEO_SCALING;
 const VIDEO_HEIGHT = 9 * VIDEO_SCALING;
@@ -58,30 +49,23 @@ const MainPage = () => {
 
     // Recognition Function
     const updateImage = async () => {
-        setCycleReady(false);
         const cameraCanvas = $camRef.current?.getCanvas();
         const imagePath = cameraCanvas?.toDataURL("image/jpeg", 1).split(',')[1] || '';
         const canvasContext: CanvasRenderingContext2D = $canvasRef.current.getContext('2d') || new CanvasRenderingContext2D;
 
-        const recognitionParams = {
-            limit: 0,
-        };
-
         const boxes: Array<Box> = [];
+        console.log(recognition);
 
-        recognition.recognize(imagePath, recognitionParams).then((result: any) => {
-
-            result.result.forEach((face: Face) => {
-                setRecognitionText(`${face.subjects[0].subject} reconhecido com ${(face.subjects[0].similarity * 100).toFixed(2)}% de similaridade`);
-                boxes.push(face.box);
-                setCycleReady(true);
-            });
-
+        recognition.recognize(imagePath, { limit: 0 }).then((face: any) => {
+            boxes.push(face.box);
+            setRecognitionText(`${face.subject.subject} reconhecido com ${(face.subject.similarity * 100).toFixed(2)}% de similaridade`);
             drawRectangles(canvasContext, boxes)
+            setCycleReady(true);
+
         }).catch((error: any) => {
             clearRectangle(canvasContext);
-            setCycleReady(true);
             console.log(error);
+            setCycleReady(true);
         });
 
     };
@@ -89,6 +73,7 @@ const MainPage = () => {
     // Update Frequency Logic
     useEffect(() => {
         if (cycleReady && !paused) {
+            setCycleReady(false);
             updateImage();
         }
     }, [cycleReady, paused]);
