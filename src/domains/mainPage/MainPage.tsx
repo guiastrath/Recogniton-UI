@@ -1,9 +1,10 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { CompreFace } from "@exadel/compreface-js-sdk";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import styles from './MainPage.module.scss'
 import { Button } from "antd";
+import classNames from "../../helpers/classNames";
 
 type Box = {
     probability: number;
@@ -17,16 +18,16 @@ const SERVER = import.meta.env.VITE_RECOGNITION_BASE_URL;
 const PORT = import.meta.env.VITE_RECOGNITION_PORT;
 const KEY = import.meta.env.VITE_RECOGNITION_API_KEY;
 
-const VIDEO_SCALING = 120;
-const VIDEO_WIDTH = 16 * VIDEO_SCALING;
-const VIDEO_HEIGHT = 9 * VIDEO_SCALING;
+const VIDEO_SCALING = 50;
+const VIDEO_WIDTH = 10 * VIDEO_SCALING;
+const VIDEO_HEIGHT = 16 * VIDEO_SCALING;
 
 const MainPage = () => {
     const $canvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
     const $camRef = useRef<Webcam>(null);
-    const [paused, setPaused] = useState<boolean>(true);
+    const [paused, setPaused] = useState<any>(true);
+    const [recognized, setRecognized] = useState<any>(false);
     const [cycleReady, setCycleReady] = useState<boolean>(true);
-    const [recognitionText, setRecognitionText] = useState<string>('');
 
     // Service Configuration
     const core = new CompreFace(SERVER, PORT);
@@ -34,40 +35,52 @@ const MainPage = () => {
 
 
     // Face Tracking Functions
-    const clearRectangle = (context: CanvasRenderingContext2D): void => {
+    const clearRectangle = useCallback((context: CanvasRenderingContext2D): void => {
         context.clearRect(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT);
-    };
+    }, [VIDEO_WIDTH, VIDEO_HEIGHT]);
 
-    const drawRectangles = (context: CanvasRenderingContext2D, boxes: Array<Box>): void => {
+    const drawRectangles = useCallback((boxes: Array<Box>): void => {
+        const canvas = $canvasRef.current;
+        if (!canvas) return;
+
+        const context = canvas.getContext('2d');
+        if (!context) return;
+
         context.strokeStyle = 'green';
         context.lineWidth = 5;
         clearRectangle(context);
         boxes.forEach(box => {
             context.strokeRect(box.x_min, box.y_min, box.x_max - box.x_min, box.y_max - box.y_min);
         });
-    }
+    }, []);
+
 
     // Recognition Function
-    const updateImage = async () => {
+    const updateImage = (): void => {
         const cameraCanvas = $camRef.current?.getCanvas();
         const imagePath = cameraCanvas?.toDataURL("image/jpeg", 1).split(',')[1] || '';
-        const canvasContext: CanvasRenderingContext2D = $canvasRef.current.getContext('2d') || new CanvasRenderingContext2D;
-
         const boxes: Array<Box> = [];
-        console.log(recognition);
 
         recognition.recognize(imagePath, { limit: 0 }).then((face: any) => {
+            console.log(face);
+            if (face === 'access denied') {
+                drawRectangles(boxes);
+                setRecognized(false);
+                setCycleReady(true);
+                return null;
+            }
+
             boxes.push(face.box);
-            setRecognitionText(`${face.subject.subject} reconhecido com ${(face.subject.similarity * 100).toFixed(2)}% de similaridade`);
-            drawRectangles(canvasContext, boxes)
+            drawRectangles(boxes);
+            setRecognized(true);
             setCycleReady(true);
 
         }).catch((error: any) => {
-            clearRectangle(canvasContext);
-            console.log(error);
+            console.log(error)
+            drawRectangles(boxes);
+            setRecognized(false);
             setCycleReady(true);
         });
-
     };
 
     // Update Frequency Logic
@@ -76,17 +89,21 @@ const MainPage = () => {
             setCycleReady(false);
             updateImage();
         }
+        if (paused) {
+            setRecognized(null);
+        }
     }, [cycleReady, paused]);
 
-    return (
-        <div className={styles.container}>
+    // Camera and Face Tracking Canvas
+    const renderVideo = useCallback(() => {
+        return (
             <div className={styles.webcamContainer}>
                 <Webcam
                     audio={false}
                     ref={$camRef}
                     onUserMedia={console.log}
                     onUserMediaError={console.log}
-                    videoConstraints={{ width: 1600, height: 900 }}
+                    videoConstraints={{ width: VIDEO_WIDTH, height: VIDEO_HEIGHT }}
                 >
                 </Webcam>
                 {paused ? null : (
@@ -94,18 +111,50 @@ const MainPage = () => {
                         <canvas ref={$canvasRef} width={VIDEO_WIDTH} height={VIDEO_HEIGHT} />
                     </div>)
                 }
-
             </div>
+        );
+    }, [paused]);
+
+    // Render Recognition Card
+    const renderRecognitionCard = useCallback(() => {
+        let text: string;
+        let style: string;
+
+        switch (recognized) {
+            case true:
+                text = `Acesso Concedido`;
+                style = styles.recognized;
+                break;
+            case false:
+                text = 'Acesso Negado';
+                style = styles.notRecognized;
+                break;
+            default:
+                text = 'Aproxime-se para Reconhecer';
+                style = styles.default;
+                break;
+        }
+
+        return (
+            <div
+                className={classNames([styles.recognitionContainer, style])}
+                data-status={text}
+            >
+                {renderVideo()}
+            </div >
+        );
+    }, [recognized]);
+
+    return (
+        <div className={styles.mainContainer}>
+            {renderRecognitionCard()}
             <Button
                 type="primary"
                 onClick={() => setPaused(!paused)}
             >
                 {paused ? 'Start' : 'Pause'}
             </Button>
-            <div>
-                {recognitionText}
-            </div>
-        </div >
+        </div>
     );
 };
 

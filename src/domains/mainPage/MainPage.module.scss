@@ -1,18 +1,87 @@
 .webcamContainer {
     display: flex;
     flex-direction: column;
-    // width: 500px;
-    // height: 500px;
 }
 
 .canvas {
     position: absolute;
 }
 
-.container {
+.mainContainer {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 10px;
+}
+
+.recognitionContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 30px solid;
+    border-radius: 15px;
+    position: relative;
+    text-align: center;
+}
+
+@keyframes flashGreen {
+
+    100% {
+        border-color: rgb(39, 223, 15);
+    }
+
+    50% {
+        border-color: rgb(33, 192, 12);
+    }
+
+    0% {
+        border-color: rgb(39, 223, 15);
+    }
+}
+
+@keyframes flashRed {
+
+    100% {
+        border-color: rgb(235, 42, 17);
+    }
+
+    50% {
+        border-color: rgb(209, 36, 13);
+    }
+
+    0% {
+        border-color: rgb(235, 42, 17);
+    }
+}
+
+.recognitionContainer::before {
+    content: attr(data-status);
+    position: absolute;
+    bottom: -23px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-weight: bold;
+    font-size: 16px;
+    color: black;
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
+    width: 500px;
+}
+
+.recognized {
+    font-weight: bold;
+    border-color: rgb(29, 161, 11);
+    animation: flashGreen 0.8s infinite;
+}
+
+.notRecognized {
+    font-weight: bold;
+    border-color: rgb(207, 18, 18);
+    animation: flashRed 0.8s infinite;
+}
+
+.default {
+    font-weight: bold;
+    border-color: rgba(128, 127, 127, 0.445);
 }
