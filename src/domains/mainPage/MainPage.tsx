@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 import { CompreFace } from "@exadel/compreface-js-sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
@@ -7,12 +6,13 @@ import { Button } from "antd";
 import classNames from "../../helpers/classNames";
 
 type Box = {
-    probability: number;
+    probability: number,
     x_min: number,
     x_max: number,
     y_min: number,
     y_max: number,
 }
+
 
 const SERVER = import.meta.env.VITE_RECOGNITION_BASE_URL;
 const PORT = import.meta.env.VITE_RECOGNITION_PORT;
@@ -29,15 +29,14 @@ const MainPage = () => {
     const [recognized, setRecognized] = useState<any>(false);
     const [cycleReady, setCycleReady] = useState<boolean>(true);
 
-    // Service Configuration
+    // CompreFace Service Configuration
     const core = new CompreFace(SERVER, PORT);
     const recognition = core.initFaceRecognitionService(KEY);
-
 
     // Face Tracking Functions
     const clearRectangle = useCallback((context: CanvasRenderingContext2D): void => {
         context.clearRect(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT);
-    }, [VIDEO_WIDTH, VIDEO_HEIGHT]);
+    }, []);
 
     const drawRectangles = useCallback((boxes: Array<Box>): void => {
         const canvas = $canvasRef.current;
@@ -52,11 +51,10 @@ const MainPage = () => {
         boxes.forEach(box => {
             context.strokeRect(box.x_min, box.y_min, box.x_max - box.x_min, box.y_max - box.y_min);
         });
-    }, []);
-
+    }, [clearRectangle]);
 
     // Recognition Function
-    const updateImage = (): void => {
+    const updateImage = useCallback((): void => {
         const cameraCanvas = $camRef.current?.getCanvas();
         const imagePath = cameraCanvas?.toDataURL("image/jpeg", 1).split(',')[1] || '';
         const boxes: Array<Box> = [];
@@ -72,7 +70,7 @@ const MainPage = () => {
 
             boxes.push(face.box);
             drawRectangles(boxes);
-            setRecognized(true);
+            setRecognized(face);
             setCycleReady(true);
 
         }).catch((error: any) => {
@@ -81,7 +79,7 @@ const MainPage = () => {
             setRecognized(false);
             setCycleReady(true);
         });
-    };
+    }, [drawRectangles, recognition]);
 
     // Update Frequency Logic
     useEffect(() => {
@@ -92,7 +90,7 @@ const MainPage = () => {
         if (paused) {
             setRecognized(null);
         }
-    }, [cycleReady, paused]);
+    }, [cycleReady, paused, updateImage]);
 
     // Camera and Face Tracking Canvas
     const renderVideo = useCallback(() => {
@@ -120,19 +118,23 @@ const MainPage = () => {
         let text: string;
         let style: string;
 
+        console.log(recognized);
+
+
         switch (recognized) {
-            case true:
-                text = `Acesso Concedido`;
-                style = styles.recognized;
+            case null:
+                text = 'Aproxime-se para Reconhecer';
+                style = styles.default;
                 break;
             case false:
                 text = 'Acesso Negado';
                 style = styles.notRecognized;
                 break;
             default:
-                text = 'Aproxime-se para Reconhecer';
-                style = styles.default;
+                text = `${recognized.subject.subject} Liberado`;
+                style = styles.recognized;
                 break;
+
         }
 
         return (
@@ -143,7 +145,7 @@ const MainPage = () => {
                 {renderVideo()}
             </div >
         );
-    }, [recognized]);
+    }, [recognized, renderVideo]);
 
     return (
         <div className={styles.mainContainer}>
